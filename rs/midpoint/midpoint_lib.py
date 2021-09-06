@@ -12,20 +12,21 @@ from rs.utils import http
 from rs.utils.basics import Logger
 
 endpoints = {
-    "ConnectorType": "connectors",
+    "ArchetypeType": "archetypes",
     "ConnectorHostType": "connectorHosts",
+    "ConnectorType": "connectors",
+    "FunctionLibraryType": "functionLibraries",
     "GenericObjectType": "genericObjects",
-    "ResourceType": "resources",
-    "UserType": "users",
     "ObjectTemplateType": "objectTemplates",
+    "OrgType": "orgs",
+    "ResourceType": "resources",
+    "RoleType": "roles",
+    "SecurityPolicyType": "securityPolicies",
+    "ShadowType": "shadows",
     "SystemConfigurationType": "systemConfigurations",
     "TaskType": "tasks",
-    "ShadowType": "shadows",
-    "RoleType": "roles",
-    "ValuePolicyType": "valuePolicies",
-    "SecurityPolicyType": "securityPolicies",
-    "OrgType": "orgs",
-    "FunctionLibraryType": "functionLibraries"
+    "UserType": "users",
+    "ValuePolicyType": "valuePolicies"
 }
 
 
