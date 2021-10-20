@@ -1,4 +1,4 @@
-# rs-midpoint is available under the MIT License. https://gitlab.com/roundservices/rs-midpoint/
+# rs-midpoint is available under the MIT License. https://github.com/RoundServices/rs-midpoint/
 # Copyright (c) 2021, Round Services LLC - https://roundservices.biz/
 #
 # Author: Gustavo J Gallardo - ggallard@roundservices.biz
