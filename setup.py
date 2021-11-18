@@ -14,7 +14,7 @@ setup(
     author='Round Services',
     author_email='ggallard@roundservices.biz',
     license='MIT License',
-    install_requires=['requests', 'rs-utils=1.0.0'],
+    install_requires=['requests', 'rs.utils'],
     packages=['rs.midpoint'],
     zip_safe=False,
     python_requires='>=3.0'
