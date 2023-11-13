@@ -5,8 +5,11 @@
 #
 
 import base64
+import json
 import requests
+import shutil
 import time
+import os
 from xml.etree import ElementTree
 from rs.utils import validators
 from rs.utils import http
@@ -32,11 +35,13 @@ endpoints = {
 
 
 class Midpoint:
-    def __init__(self, mp_baseurl, mp_username, mp_password, logger=Logger("Midpoint"), iterations=10, interval=10):
+    def __init__(self, mp_baseurl, mp_username, mp_password, properties, logger=Logger("Midpoint"), temp_file_path="/tmp/midpoint_object", iterations=10, interval=10):
         self._baseurl = mp_baseurl
         mp_credentials = "{}:{}".format(mp_username, mp_password)
         self._credentials = base64.b64encode(mp_credentials.encode())
         self._logger = logger
+        self._properties = properties
+        self._temp_file_path = temp_file_path
         url = "{}users/00000000-0000-0000-0000-000000000002".format(self._baseurl)
         headers = {'Authorization': 'Basic {}'.format(self._credentials.decode()), 'Content-Type': 'application/xml'}
         http.wait_for_endpoint(url, iterations, interval, logger, headers)
@@ -225,26 +230,88 @@ class Midpoint:
         response = self._add_inducement(inducement_type="RoleType", inducement_oid=child_oid, inducement_name=child_name, target_type="RoleType", target_oid=parent_oid, target_name=parent_name)
         return response
     
-    def wait_for_object(self, logger, iterations, interval, object_type, object_oid=None, object_name=None):
+    def wait_for_object(self, iterations, interval, object_type, object_oid=None, object_name=None):
         object_exists = False
         for iteration in range(iterations):
-            logger.debug("Iteration #: {}", iteration)
+            self._logger.debug("Iteration #: {}", iteration)
             try:
                 if object_oid is not None:
-                    logger.debug("Checking if object exists. Type: {}, oid: {}", object_type, object_oid)
+                    self._logger.debug("Checking if object exists. Type: {}, oid: {}", object_type, object_oid)
                     if self.check_object_exists(object_type, object_oid):
                         object_exists = True
                         break
                 elif object_name is not None:
-                    logger.debug("Checking if object exists. Type: {}, name: {}", object_type, object_name)
-                    if self.get_object_by_name(self, object_type, object_name) is not None:
+                    self._logger.debug("Checking if object exists. Type: {}, name: {}", object_type, object_name)
+                    if self.get_object_by_name(object_type, object_name) is not None:
                         object_exists = True
+                        self._logger.debug("Checking if object exists. Type: {}, name: {}", object_type, object_name)
                         break
                 else:
-                    logger.error("Either object_oid or object_name must be specified.")
+                    self._logger.error("Either object_oid or object_name must be specified.")
             except:
-                logger.debug("Exception while trying to find object_type: {}, object_oid: {}, object_name: {}", object_type, object_oid, object_name)
-            logger.info("Waiting {} seconds for object_type: {}, object_oid: {}, object_name: {}", interval, object_type, object_oid, object_name)
+                self._logger.debug("Exception while trying to find object_type: {}, object_oid: {}, object_name: {}", object_type, object_oid, object_name)
+            self._logger.info("Waiting {} seconds for object_type: {}, object_oid: {}, object_name: {}", interval, object_type, object_oid, object_name)
             time.sleep(interval)
         if not object_exists:
             raise Exception("Gave up trying to find object_type: {}, object_oid: {}, object_name: {}".format(object_type, object_oid, object_name))
+    
+    def process_subfolders(self, subfolder_path):
+        if not os.path.exists(subfolder_path):
+            self._logger.error("Folder not found: {}.", subfolder_path)
+            return
+        self._logger.debug("Processing dir: {}.", subfolder_path)
+        for object_type_folder in sorted(os.scandir(subfolder_path), key=lambda path: path.name):
+            if object_type_folder.is_dir():
+                self.process_folder(object_type_folder.path)
+
+    def process_folder(self, folder_path):
+        self._logger.debug("Processing dir: {}.", folder_path)
+        if not os.path.exists(folder_path):
+            self._logger.error("Folder not found: {}.", folder_path)
+            return
+        for file in sorted(os.scandir(folder_path), key=lambda path: path.name):
+            if file.is_file():
+                self.process_file(file)
+
+    def process_file(self, file):
+        if not os.path.exists(file):
+            self._logger.error("File not found: {}.", file)
+            return
+        
+        if file.path.endswith(".xml"):
+            self._logger.debug("Processing file: {}.", file.name)
+            shutil.copyfile(file.path, self._temp_file_path)
+            self._properties.replace(self._temp_file_path)
+            self.put_object_from_file(self._temp_file_path)
+
+            with open(file, "r") as file_object:
+                xml_data = file_object.read()
+                file_object.close()
+            oid = self._get_oid_from_document(xml_data)
+            object_type = self._get_objectType_from_document(xml_data)
+            self.wait_for_object(5, 10, object_type, object_oid=oid)
+
+        if file.is_file() and file.path.endswith(".patch"):
+            self._logger.debug("Processing file: {}.", file.name)
+            shutil.copyfile(file.path, self._temp_file_path)
+            self._properties.replace(self._temp_file_path)
+            self._logger.trace("File name: {}.", file.name)
+            oid = file.name.split(".")[0]
+            folder_path = os.path.dirname(file)
+            self._logger.debug("Spliting folder name for endpoint: {}.", folder_path)
+            endpoint = folder_path.split("_")[1]
+            self.patch_object_from_file(self._temp_file_path, endpoint, oid)
+
+        if file.is_file() and file.path.endswith(".json"):
+            self._logger.debug("Processing file: {}.".format(file.path))
+            with open(file) as f:
+                data = json.load(f)
+            self._logger.debug("Reading json: {}".format(data))
+            self._logger.debug("Child name: {}, Parent name: {}.", data['child_name'], data['parent_name'])
+            match data["operation_type"]:
+                case "add_role_inducement_to_role":
+                    self.wait_for_object(2, 30, "RoleType", object_name=data['parent_name'])
+                    self.wait_for_object(2, 30, "RoleType", object_name=data['child_name'])
+                    self.add_role_inducement_to_role(child_name=data['child_name'], parent_name=data['parent_name'])
+                case _:
+                    self._logger.error("OperationType is unknown: {}.", data["operation_type"])
