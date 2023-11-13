@@ -6,6 +6,7 @@
 
 import base64
 import requests
+import time
 from xml.etree import ElementTree
 from rs.utils import validators
 from rs.utils import http
@@ -223,3 +224,27 @@ class Midpoint:
     def add_role_inducement_to_role(self, child_oid=None, child_name=None, parent_oid=None, parent_name=None):
         response = self._add_inducement(inducement_type="RoleType", inducement_oid=child_oid, inducement_name=child_name, target_type="RoleType", target_oid=parent_oid, target_name=parent_name)
         return response
+    
+    def wait_for_object(self, logger, iterations, interval, object_type, object_oid=None, object_name=None):
+        object_exists = False
+        for iteration in range(iterations):
+            logger.debug("Iteration #: {}", iteration)
+            try:
+                if object_oid is not None:
+                    logger.debug("Checking if object exists. Type: {}, oid: {}", object_type, object_oid)
+                    if self.check_object_exists(object_type, object_oid):
+                        object_exists = True
+                        break
+                elif object_name is not None:
+                    logger.debug("Checking if object exists. Type: {}, name: {}", object_type, object_name)
+                    if self.get_object_by_name(self, object_type, object_name) is not None:
+                        object_exists = True
+                        break
+                else:
+                    logger.error("Either object_oid or object_name must be specified.")
+            except:
+                logger.debug("Exception while trying to find object_type: {}, object_oid: {}, object_name: {}", object_type, object_oid, object_name)
+            logger.info("Waiting {} seconds for object_type: {}, object_oid: {}, object_name: {}", interval, object_type, object_oid, object_name)
+            time.sleep(interval)
+        if not object_exists:
+            raise Exception("Gave up trying to find object_type: {}, object_oid: {}, object_name: {}".format(object_type, object_oid, object_name))
