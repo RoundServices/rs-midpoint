@@ -284,13 +284,6 @@ class Midpoint:
             self._properties.replace(self._temp_file_path)
             self.put_object_from_file(self._temp_file_path)
 
-            with open(file, "r") as file_object:
-                xml_data = file_object.read()
-                file_object.close()
-            oid = self._get_oid_from_document(xml_data)
-            object_type = self._get_objectType_from_document(xml_data)
-            self.wait_for_object(5, 10, object_type, object_oid=oid)
-
         if file.is_file() and file.path.endswith(".patch"):
             self._logger.debug("Processing file: {}.", file.name)
             shutil.copyfile(file.path, self._temp_file_path)
