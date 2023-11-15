@@ -313,6 +313,6 @@ class Midpoint:
                 case "add_role_inducement_to_role":
                     self.add_role_inducement_to_role(child_oid=json_data.get('child_oid'), child_name=json_data.get('child_name'), parent_oid=json_data.get('parent_oid'), parent_name=json_data.get('parent_name'))
                 case "add_role_inducement_to_archetype":
-                    self.add_role_inducement_to_archetype(role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'), archetyoe_oid=json_data.get('archetyoe_oid'), archetype_name=json_data.get('archetype_name'))
+                    self.add_role_inducement_to_archetype(role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'), archetype_oid=json_data.get('archetyoe_oid'), archetype_name=json_data.get('archetype_name'))
                 case _:
                     self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
