@@ -182,6 +182,9 @@ class Midpoint:
         else:
             raise Exception("Either target_oid or target_name must be specified.")
 
+        self.wait_for_object(iterations=2, interval=30, object_type=inducement_type, object_oid=inducement_oid, object_name=inducement_name)
+        self.wait_for_object(iterations=2, interval=30, object_type=target_type, object_oid=target_oid, object_name=target_name)
+
         inducement_object = {}
         if inducement_oid is not None:
             inducement_object = self.get_object(inducement_type, inducement_oid)
@@ -229,7 +232,11 @@ class Midpoint:
     def add_role_inducement_to_role(self, child_oid=None, child_name=None, parent_oid=None, parent_name=None):
         response = self._add_inducement(inducement_type="RoleType", inducement_oid=child_oid, inducement_name=child_name, target_type="RoleType", target_oid=parent_oid, target_name=parent_name)
         return response
-    
+
+    def add_role_inducement_to_archetype(self, role_oid=None, role_name=None, archetype_oid=None, archetype_name=None):
+        response = self._add_inducement(inducement_type="RoleType", inducement_oid=role_oid, inducement_name=role_name, target_type="ArchetypeType", target_oid=archetype_oid, target_name=archetype_name)
+        return response
+
     def wait_for_object(self, iterations, interval, object_type, object_oid=None, object_name=None):
         object_exists = False
         for iteration in range(iterations):
@@ -298,13 +305,14 @@ class Midpoint:
         if file.is_file() and file.path.endswith(".json"):
             self._logger.debug("Processing file: {}.".format(file.path))
             with open(file) as f:
-                data = json.load(f)
-            self._logger.debug("Reading json: {}".format(data))
-            self._logger.debug("Child name: {}, Parent name: {}.", data['child_name'], data['parent_name'])
-            match data["operation_type"]:
+                json_data = json.load(f)
+            self._logger.debug("JSON data: {}".format(json_data))
+            match json_data["operation_type"]:
+                case "add_resource_inducement_to_role":
+                    self.add_resource_inducement_to_role(resource_oid=json_data.get('resource_oid'), resource_name=json_data.get('resource_name'), role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'))
                 case "add_role_inducement_to_role":
-                    self.wait_for_object(2, 30, "RoleType", object_name=data['parent_name'])
-                    self.wait_for_object(2, 30, "RoleType", object_name=data['child_name'])
-                    self.add_role_inducement_to_role(child_name=data['child_name'], parent_name=data['parent_name'])
+                    self.add_role_inducement_to_role(child_oid=json_data.get('child_oid'), child_name=json_data.get('child_name'), parent_oid=json_data.get('parent_oid'), parent_name=json_data.get('parent_name'))
+                case "add_role_inducement_to_archetype":
+                    self.add_role_inducement_to_archetype(role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'), archetyoe_oid=json_data.get('archetyoe_oid'), archetype_name=json_data.get('archetype_name'))
                 case _:
-                    self._logger.error("OperationType is unknown: {}.", data["operation_type"])
+                    self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
