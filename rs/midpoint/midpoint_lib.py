@@ -307,7 +307,16 @@ class Midpoint:
             with open(file) as f:
                 json_data = json.load(f)
             self._logger.debug("JSON data: {}".format(json_data))
-            match json_data["operation_type"]:
+            if isinstance(json_data, dict):
+                self._logger.trace("JSON is dictionary")
+                self.process_operation(json_data)
+            if isinstance(json_data, list):
+                self._logger.trace("JSON is list")
+                for operation in json_data:
+                    self.process_operation(operation)
+
+    def process_operation(self, json_data):
+        match json_data["operation_type"]:
                 case "add_resource_inducement_to_role":
                     self.add_resource_inducement_to_role(resource_oid=json_data.get('resource_oid'), resource_name=json_data.get('resource_name'), role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'))
                 case "add_role_inducement_to_role":
