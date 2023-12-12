@@ -198,7 +198,12 @@ class Midpoint:
         else:
             raise Exception("Either inducement_oid or inducement_name must be specified.")
 
-        # TODO: check if object already has the inducement
+        self._logger.debug("Checking if inducement already exists for target_object: {}, target_oid: {}, inducement_name: {}, inducement_oid: {}", target_name, target_oid, inducement_name, inducement_oid)
+        target_object_normalized = target_object.decode() if type(target_object) is bytes else target_object
+        if inducement_oid in target_object_normalized:
+            self._logger.debug("Inducement already exists for target_object: {}, target_oid: {}, inducement_name: {}, inducement_oid: {}", target_name, target_oid, inducement_name, inducement_oid)
+            return
+
         self._logger.debug("Adding inducement type: {}, oid: {} to object type: {}, oid: {}", inducement_type, inducement_oid, target_type, target_oid)
         if inducement_type=="ResourceType":
             new_inducement = """<c:construction>
@@ -257,7 +262,7 @@ class Midpoint:
                     self._logger.error("Either object_oid or object_name must be specified.")
             except:
                 self._logger.debug("Exception while trying to find object_type: {}, object_oid: {}, object_name: {}", object_type, object_oid, object_name)
-            self._logger.info("Waiting {} seconds for object_type: {}, object_oid: {}, object_name: {}", interval, object_type, object_oid, object_name)
+            self._logger.trace("Waiting {} seconds for object_type: {}, object_oid: {}, object_name: {}", interval, object_type, object_oid, object_name)
             time.sleep(interval)
         if not object_exists:
             raise Exception("Gave up trying to find object_type: {}, object_oid: {}, object_name: {}".format(object_type, object_oid, object_name))
@@ -304,7 +309,9 @@ class Midpoint:
 
         if file.is_file() and file.path.endswith(".json"):
             self._logger.debug("Processing file: {}.".format(file.path))
-            with open(file) as f:
+            shutil.copyfile(file.path, self._temp_file_path)
+            self._properties.replace(self._temp_file_path)
+            with open(self._temp_file_path) as f:
                 json_data = json.load(f)
             self._logger.debug("JSON data: {}".format(json_data))
             if isinstance(json_data, dict):
@@ -316,6 +323,7 @@ class Midpoint:
                     self.process_operation(operation)
 
     def process_operation(self, json_data):
+        self._logger.trace("Processing operation based on operation_type: {}".format(json_data.get('operation_type')))
         match json_data["operation_type"]:
                 case "add_resource_inducement_to_role":
                     self.add_resource_inducement_to_role(resource_oid=json_data.get('resource_oid'), resource_name=json_data.get('resource_name'), role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'))
