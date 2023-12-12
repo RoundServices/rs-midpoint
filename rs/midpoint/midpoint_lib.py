@@ -331,5 +331,25 @@ class Midpoint:
                     self.add_role_inducement_to_role(child_oid=json_data.get('child_oid'), child_name=json_data.get('child_name'), parent_oid=json_data.get('parent_oid'), parent_name=json_data.get('parent_name'))
                 case "add_role_inducement_to_archetype":
                     self.add_role_inducement_to_archetype(role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'), archetype_oid=json_data.get('archetype_oid'), archetype_name=json_data.get('archetype_name'))
+                case "set_system_configuration":
+                    self.set_system_configuration(modification_type=json_data.get('modification_type'), path=json_data.get('path'), value=json_data.get('value'))
+                    self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
                 case _:
                     self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
+
+    def set_system_configuration(self, modification_type, path, value):
+        self._logger.debug("set_system_configuration(modification_type={}, path={}, value={}", modification_type, path, value)
+        xml_data = """<objectModification
+                xmlns='http://midpoint.evolveum.com/xml/ns/public/common/api-types-3'
+                xmlns:c='http://midpoint.evolveum.com/xml/ns/public/common/common-3'
+                xmlns:org='http://midpoint.evolveum.com/xml/ns/public/common/org-3'
+                xmlns:t='http://prism.evolveum.com/xml/ns/public/types-3'>
+                    <itemDelta>
+                        <t:modificationType>{}</t:modificationType>
+                        <t:path>{}</t:path>
+                        <t:value>{}</t:value>
+                    </itemDelta>
+                </objectModification>""".format(modification_type, path, value)
+        endpoint = self._get_endpoint("SystemConfigurationType")
+        response = self.patch_object(xml_data, endpoint, "00000000-0000-0000-0000-000000000001")
+        return response
