@@ -333,7 +333,8 @@ class Midpoint:
                     self.add_role_inducement_to_archetype(role_oid=json_data.get('role_oid'), role_name=json_data.get('role_name'), archetype_oid=json_data.get('archetype_oid'), archetype_name=json_data.get('archetype_name'))
                 case "set_system_configuration":
                     self.set_system_configuration(modification_type=json_data.get('modification_type'), path=json_data.get('path'), value=json_data.get('value'))
-                    self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
+                case "set_class_logger":
+                    self.set_class_logger(package=json_data.get('package'), level=json_data.get('level'))
                 case _:
                     self._logger.error("OperationType is unknown: {}.", json_data["operation_type"])
 
@@ -353,3 +354,49 @@ class Midpoint:
         endpoint = self._get_endpoint("SystemConfigurationType")
         response = self.patch_object(xml_data, endpoint, "00000000-0000-0000-0000-000000000001")
         return response
+    
+    def parse_class_logger(self, xml_content):
+        self._logger.trace("Parsing existing classLoggers.")
+        ns = {'c': 'http://midpoint.evolveum.com/xml/ns/public/common/common-3'}
+        root = ElementTree.fromstring(xml_content)
+        class_loggers = root.findall('c:logging/c:classLogger', namespaces=ns)
+        result = []
+        for logger in class_loggers:
+            level = logger.find('c:level', namespaces=ns).text
+            package = logger.find('c:package', namespaces=ns).text
+            logger_id = logger.get('id')
+            entry = {
+                "id": logger_id,
+                "operation_type": "set_class_logger",
+                "package": package,
+                "level": level
+            }
+            result.append(entry)
+        self._logger.trace("existing classLoggers: {}".format(result))
+        return result
+
+    def replace_class_logger(self, id, level):
+        path = "c:logging/c:classLogger[{}]/level".format(id)
+        self.set_system_configuration("REPLACE", path, level)
+        
+    def add_class_logger(self, package, level):
+        value = """
+                <c:level>{}</c:level>
+                <c:package>{}</c:package>
+        """.format(level, package)
+        path = "c:logging/c:classLogger"
+        self.set_system_configuration("ADD", path, value)
+
+    def set_class_logger(self, package, level):
+        system_configuration_object = self.get_object("SystemConfigurationType", "00000000-0000-0000-0000-000000000001")
+        existing_logger_id = None
+        logger_entries = self.parse_class_logger(system_configuration_object)
+        self._logger.trace("Existing logger entries: {}", logger_entries)
+        for logger_entry in logger_entries:
+            self._logger.trace("Checking if logger entry already exist: {}", logger_entry)
+            if logger_entry["package"] == package:
+                existing_logger_id = logger_entry["id"]
+                self._logger.debug("Logger already exists for package: {}, updating log-level", package)
+                self.replace_class_logger(existing_logger_id, level)
+                return
+        self.add_class_logger(package, level)
